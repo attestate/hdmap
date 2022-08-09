@@ -3,6 +3,7 @@ pragma solidity 0.8.13;
 
 import { Dmap } from './dmap.sol';
 import { Harberger, Period, Perwei } from "./Harberger.sol";
+import { ReentrancyGuard } from "./ReentrancyGuard.sol";
 
 uint256 constant avgEthereumBlockTimeSeconds = 12 seconds;
 uint256 constant daySeconds = 86400 seconds;
@@ -17,7 +18,7 @@ struct Deed {
 }
 
 // Hdmap as in Harberger dmap
-contract Hdmap {
+contract Hdmap is ReentrancyGuard {
   Dmap                      public immutable dmap;
   mapping(bytes32=>Deed)    public           deeds;
   uint256                   public immutable numerator = 1;
@@ -45,7 +46,7 @@ contract Hdmap {
     );
   }
 
-  function take(bytes32 key) external payable {
+  function take(bytes32 key) nonReentrant external payable {
     require(msg.value != 0, "ERR_MSG_VALUE");
 
     Deed memory deed = deeds[key];
@@ -63,17 +64,17 @@ contract Hdmap {
       );
       require(msg.value >= nextPrice, "ERR_VAL");
 
-      // DONATIONS: Consider donating to rugpullindex.eth to help compensate
-      // for my deployment costs.
-      (bool ok0, ) = block.coinbase.call{value:(taxes)}("");
-      require(ok0, "ERR_CB");
-
       address beneficiary = deed.controller;
       deed.collateral = msg.value;
       deed.controller = msg.sender;
       deed.startBlock = block.number;
       deeds[key] = deed;
 
+      // DONATIONS: Consider donating to timdaub.eth to help compensate for
+      // deployment costs.
+      // Add to combat re-entrancy
+      (bool ok0, ) = block.coinbase.call{value:(taxes)}("");
+      require(ok0, "ERR_CB");
       (bool ok1, ) = beneficiary.call{value:(nextPrice)}("");
       require(ok1, "ERR_BEN");
     }
