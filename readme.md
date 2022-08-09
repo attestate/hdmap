@@ -16,6 +16,7 @@
 - All captured Harberger taxes are sent to Ethereum miners. Hdmap is an
   "Ethereum upgrade" and, hence, very different from the many "protocols"
   issuing their own tokens or implementing egoistical rent-seeking.
+- Locking a dmap name's `meta`/`data` is prevented.
 
 ## tests
 
