@@ -88,6 +88,11 @@ contract Hdmap is ReentrancyGuard {
   }
 
   function set(bytes32 key, bytes32 meta, bytes32 data) external {
+    bool locked;
+    assembly {
+      locked := and(meta, 0x1)
+    }
+    require(!locked, "ERR_NO_LOCK");
     require(deeds[key].controller == msg.sender, "ERR_OWNER");
     dmap.set(key, meta, data);
   }

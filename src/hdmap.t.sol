@@ -302,7 +302,7 @@ contract HdmapTest is Test {
 
   function testSetNonExistent() public {
     bytes32 key = 0x0000000000000000000000000000000000000000000000000000000000001337;
-    bytes32 meta = 0x0000000000000000000000000000000000000000000000000000000000001337;
+    bytes32 meta = 0x0000000000000000000000000000000000000000000000000000000000001330;
     bytes32 data = 0x0000000000000000000000000000000000000000000000000000000000001337;
     vm.expectRevert(bytes("ERR_OWNER"));
     hdmap.set(key, meta, data);
@@ -313,11 +313,34 @@ contract HdmapTest is Test {
     uint256 value = hdmap.denominator();
     hdmap.take{value: value}(key);
 
-    bytes32 meta = 0x0000000000000000000000000000000000000000000000000000000000001337;
+    bytes32 meta = 0x0000000000000000000000000000000000000000000000000000000000001330;
     bytes32 data = 0x0000000000000000000000000000000000000000000000000000000000001337;
     Taker taker = new Taker();
     vm.expectRevert(bytes("ERR_OWNER"));
     taker.set(hdmap, key, meta, data);
+  }
+
+  function testLockedMeta() public {
+    bytes32 meta0 = 0x0000000000000000000000000000000000000000000000000000000000000000;
+    bool locked0;
+    assembly {
+      locked0 := and(meta0, 1)
+    }
+    assertFalse(locked0);
+
+    bytes32 meta1 = 0x0000000000000000000000000000000000000000000000000000000000000001;
+    bool locked1;
+    assembly {
+      locked1 := and(meta1, 1)
+    }
+    assertTrue(locked1);
+
+    bytes32 meta2 = 0x0000000000000000000000000000000000000000000000000000000000000002;
+    bool locked2;
+    assembly {
+      locked2 := and(meta2, 1)
+    }
+    assertFalse(locked2);
   }
 
   function testSet() public {
@@ -325,7 +348,7 @@ contract HdmapTest is Test {
     uint256 value = hdmap.denominator();
     hdmap.take{value: value}(key);
 
-    bytes32 meta = 0x0000000000000000000000000000000000000000000000000000000000001337;
+    bytes32 meta = 0x0000000000000000000000000000000000000000000000000000000000000010;
     bytes32 data = 0x0000000000000000000000000000000000000000000000000000000000001337;
     hdmap.set(key, meta, data);
 
@@ -335,22 +358,14 @@ contract HdmapTest is Test {
     assertEq(actualData, data);
   }
 
-  function testSetTwice() public {
+  function testSetWithLock() public {
     bytes32 key = 0x0000000000000000000000000000000000000000000000000000000000001337;
     uint256 value = hdmap.denominator();
     hdmap.take{value: value}(key);
 
-    bytes32 meta0 = 0x0000000000000000000000000000000000000000000000000000000000001337;
+    bytes32 meta0 = 0x0000000000000000000000000000000000000000000000000000000000000001;
     bytes32 data0 = 0x0000000000000000000000000000000000000000000000000000000000001337;
+    vm.expectRevert(bytes("ERR_NO_LOCK"));
     hdmap.set(key, meta0, data0);
-
-    bytes32 slot = keccak256(encodeZoneAndName(address(hdmap), key));
-    (bytes32 actualMeta, bytes32 actualData) = dmap.get(slot);
-    assertEq(actualMeta, meta0);
-    assertEq(actualData, data0);
-
-    bytes32 meta1 = 0x0000000000000000000000000000000000000000000000000000000000001337;
-    bytes32 data1 = 0x0000000000000000000000000000000000000000000000000000000000000666;
-    hdmap.set(key, meta1, data1);
   }
 }
