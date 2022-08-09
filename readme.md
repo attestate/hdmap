@@ -4,7 +4,7 @@
 
 ## description
 
-- Hdmap implements a Harberger tax as depricating licenses for `bytes32` dmap
+- Hdmap implements a Harberger tax as deprecating licenses for `bytes32` dmap
   keys.
 - The tax is calculated on a per-block basis.
 - The tax rate is 1/1908000/block. The denumerator (1908000) represents the
