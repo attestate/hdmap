@@ -49,6 +49,12 @@ contract HdmapTest is Test {
   RootZone rz;
   bytes32 commitment;
 
+  event Give(
+    address indexed giver,
+    bytes32 indexed zone,
+    address indexed recipient
+  );
+
   receive() external payable {}
 
   function testIfBeneficiaryRentrancyIsGuarded() public {
@@ -160,6 +166,8 @@ contract HdmapTest is Test {
     bytes32 key = 0x0000000000000000000000000000000000000000000000000000000000001337;
     uint256 value = 1;
     uint256 currentBlock = block.number;
+    vm.expectEmit(true, true, true, false);
+    emit Give(address(0), key, address(this));
     hdmap.take{value: value}(key);
 
     (address controller, uint256 collateral, uint256 startBlock) = hdmap.deeds(key);
@@ -209,6 +217,8 @@ contract HdmapTest is Test {
 
     Taker taker = new Taker();
     uint256 balance0 = address(this).balance;
+    vm.expectEmit(true, true, true, false);
+    emit Give(address(this), key, address(taker));
     taker.take{value: collateral0}(hdmap, key);
     uint256 balance1 = address(this).balance;
     assertEq(balance0 - balance1, 1);
@@ -280,6 +290,8 @@ contract HdmapTest is Test {
     assertEq(startBlock0, currentBlock);
 
     address recipient = address(1337);
+    vm.expectEmit(true, true, true, false);
+    emit Give(address(this), key, recipient);
     hdmap.give(key, recipient);
 
     (address controller1, uint256 collateral1, uint256 startBlock1) = hdmap.deeds(key);

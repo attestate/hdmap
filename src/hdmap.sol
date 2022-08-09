@@ -55,6 +55,7 @@ contract Hdmap is ReentrancyGuard {
       deed.controller = msg.sender;
       deed.startBlock = block.number;
       deeds[key] = deed;
+      emit Give(address(0), key, msg.sender);
     } else {
       Period memory period = Period(deed.startBlock, block.number);
       (uint256 nextPrice, uint256 taxes) = Harberger.getNextPrice(
@@ -76,9 +77,8 @@ contract Hdmap is ReentrancyGuard {
       // deployment costs.
       block.coinbase.call{value: taxes}("");
       beneficiary.call{value: nextPrice}("");
+      emit Give(beneficiary, key, msg.sender);
     }
-
-    emit Give(address(0), key, msg.sender);
   }
 
   function give(bytes32 key, address recipient) external {
