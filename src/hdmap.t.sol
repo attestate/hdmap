@@ -17,6 +17,28 @@ contract Taker {
   }
 }
 
+contract CensorTaker is Taker {
+  fallback() external payable {
+    revert();
+  }
+}
+
+contract Censor {
+  fallback() external payable {
+    revert();
+  }
+}
+
+contract Reentry {
+  fallback() external payable {
+    Hdmap hdmap = Hdmap(msg.sender);
+    bytes32 key = 0x0000000000000000000000000000000000000000000000000000000000000666;
+    hdmap.take{value: 1}(key);
+  }
+}
+
+contract BeneficiaryReentry is Taker, Reentry {}
+
 contract HdmapTest is Test {
   // Address of publicly deployed dmap
   address dmapAddress = 0x90949c9937A11BA943C7A72C3FA073a37E3FdD96;
@@ -28,6 +50,63 @@ contract HdmapTest is Test {
   bytes32 commitment;
 
   receive() external payable {}
+
+  function testIfBeneficiaryRentrancyIsGuarded() public {
+    bytes32 key = 0x0000000000000000000000000000000000000000000000000000000000001337;
+    uint256 value = 1;
+    hdmap.take{value: value}(key);
+
+    BeneficiaryReentry br = new BeneficiaryReentry();
+    vm.etch(block.coinbase, address(br).code);
+    assertEq(block.coinbase.code, address(br).code);
+    br.take{value: 2}(hdmap, key);
+
+    bytes32 reentryKey = 0x0000000000000000000000000000000000000000000000000000000000000666;
+    (address controller, uint256 collateral, uint256 startBlock) = hdmap.deeds(reentryKey);
+    assertEq(controller, address(0));
+    assertEq(collateral, 0);
+    assertEq(startBlock, 0);
+  }
+
+  function testIfCoinbaseRentrancyIsGuarded() public {
+    bytes32 key = 0x0000000000000000000000000000000000000000000000000000000000001337;
+    uint256 value = 1;
+    hdmap.take{value: value}(key);
+
+    Reentry reentry = new Reentry();
+    vm.etch(block.coinbase, address(reentry).code);
+    assertEq(block.coinbase.code, address(reentry).code);
+    hdmap.take{value: 2}(key);
+
+    bytes32 reentryKey = 0x0000000000000000000000000000000000000000000000000000000000000666;
+    (address controller, uint256 collateral, uint256 startBlock) = hdmap.deeds(reentryKey);
+    assertEq(controller, address(0));
+    assertEq(collateral, 0);
+    assertEq(startBlock, 0);
+  }
+
+  function testToMakeSureThatBeneficiaryCannotCensorTake() public {
+    bytes32 key = 0x0000000000000000000000000000000000000000000000000000000000001337;
+    uint256 value = 1;
+    hdmap.take{value: value}(key);
+
+    Censor censor = new Censor();
+    vm.etch(block.coinbase, address(censor).code);
+    assertEq(block.coinbase.code, address(censor).code);
+    CensorTaker ct = new CensorTaker();
+    ct.take{value: 2}(hdmap, key);
+  }
+
+  function testToMakeSureThatCoinbaseCannotCensorTake() public {
+    bytes32 key = 0x0000000000000000000000000000000000000000000000000000000000001337;
+    uint256 value = 1;
+    hdmap.take{value: value}(key);
+
+    Censor censor = new Censor();
+    vm.etch(block.coinbase, address(censor).code);
+    assertEq(block.coinbase.code, address(censor).code);
+    hdmap.take{value: 2}(key);
+  }
 
   function setUp() public {
     dmap = Dmap(dmapAddress);
@@ -72,11 +151,9 @@ contract HdmapTest is Test {
     assertEq(keccak256(code), expected);
   }
 
-  function testTakeForFree() public {
+  function testFailTakeForFree() public {
     bytes32 key = 0x0000000000000000000000000000000000000000000000000000000000001337;
-    uint256 value = 0;
-    vm.expectRevert(bytes("ERR_MSG_VALUE"));
-    hdmap.take{value: value}(key);
+    hdmap.take{value: 0}(key);
   }
 
   function testTake() public {

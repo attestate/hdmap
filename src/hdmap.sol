@@ -70,13 +70,12 @@ contract Hdmap is ReentrancyGuard {
       deed.startBlock = block.number;
       deeds[key] = deed;
 
+      // NOTE: Stakers and beneficiaries must not control the finalization of
+      // this function, hence, we're not checking for the calls' success.
       // DONATIONS: Consider donating to timdaub.eth to help compensate for
       // deployment costs.
-      // Add to combat re-entrancy
-      (bool ok0, ) = block.coinbase.call{value:(taxes)}("");
-      require(ok0, "ERR_CB");
-      (bool ok1, ) = beneficiary.call{value:(nextPrice)}("");
-      require(ok1, "ERR_BEN");
+      block.coinbase.call{value: taxes}("");
+      beneficiary.call{value: nextPrice}("");
     }
 
     emit Give(address(0), key, msg.sender);
