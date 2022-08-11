@@ -16,7 +16,7 @@
 └────────────────────────────────────────────────┘
 
    ┌───┐
-   │   │  ┌───┐             Deprecating licenses
+   │   │  ┌───┐             Depreciating licenses
    │   │  │   │  ┌───┐
    │   │  │   │  │   │  ┌───┐
    │   │  │   │  │   │  │   │  ┌───┐
@@ -48,7 +48,7 @@
   [dmap](https://github.com/dapphub/dmap)
   [zonefab](https://github.com/dmfxyz/zonefab).
 - An sub-namezone owner can permanently or temporarly lock key value pairs.
-  But write-access is permanently auctioned via [deprecating
+  But write-access is permanently auctioned via [depreciating
   licenses](https://anthonyleezhang.github.io/pdfs/dl.pdf).
 - The tax is calculated on a per-block basis.
 - The tax rate is 1/1908000/block. The denominator (1908000) represents the
