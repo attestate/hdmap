@@ -34,7 +34,8 @@
   2. A `SimpleNameZone` is deployed when you call
      `take(bytes32("maker"))`. SALSA-rules apply!
 
-  3. Stow some keys (and lock them)!
+  3. Stow some keys (and lock them) e.g.
+     "maker:dai"
 
   4. Make sure you continously self-assess your
      namezone's property value! It's "partial
