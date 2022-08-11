@@ -30,6 +30,9 @@ contract Hdmap is ReentrancyGuard {
   uint256                   public immutable denominator  = yearBlocks;
   bytes32                          immutable LOCK         = bytes32(uint(0x1));
 
+  error ErrValue();
+  error ErrAuthorization();
+
   event Give(
     address indexed giver,
     bytes32 indexed zone,
@@ -67,7 +70,8 @@ contract Hdmap is ReentrancyGuard {
         block.number - deed.startBlock,
         deed.collateral
       );
-      require(msg.value >= nextPrice, "ERR_VAL");
+
+      if (msg.value < nextPrice) revert ErrValue();
 
       address beneficiary = deed.controller;
       deed.collateral = msg.value;
@@ -86,7 +90,7 @@ contract Hdmap is ReentrancyGuard {
   }
 
   function give(bytes32 org, address recipient) external {
-    require(deeds[org].controller == msg.sender, "ERR_OWNER");
+    if (deeds[org].controller != msg.sender) revert ErrAuthorization();
     deeds[org].controller = recipient;
     emit Give(msg.sender, org, recipient);
   }
@@ -107,7 +111,7 @@ contract Hdmap is ReentrancyGuard {
   }
 
   function stow(bytes32 org, bytes32 key, bytes32 meta, bytes32 data) external {
-    require(deeds[org].controller == msg.sender, "ERR_OWNER");
+    if (deeds[org].controller != msg.sender) revert ErrAuthorization();
     SimpleNameZone z = SimpleNameZone(lookup(org));
     z.stow(key, meta, data);
   }

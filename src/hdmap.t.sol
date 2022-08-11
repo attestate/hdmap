@@ -229,7 +229,7 @@ contract HdmapTest is Test {
     assertEq(taxes1, 1);
 
     Taker taker = new Taker();
-    vm.expectRevert(bytes("ERR_VAL"));
+    vm.expectRevert(Hdmap.ErrValue.selector);
     taker.take{value: collateral0-2}(hdmap, key);
   }
 
@@ -340,7 +340,7 @@ contract HdmapTest is Test {
     bytes32 key = 0x0000000000000000000000000000000000000000000000000000000000001337;
     bytes32 meta = 0x0000000000000000000000000000000000000000000000000000000000001330;
     bytes32 data = 0x0000000000000000000000000000000000000000000000000000000000001337;
-    vm.expectRevert(bytes("ERR_OWNER"));
+    vm.expectRevert(Hdmap.ErrAuthorization.selector);
     hdmap.stow(org, key, meta, data);
   }
 
@@ -353,7 +353,7 @@ contract HdmapTest is Test {
     bytes32 meta = 0x0000000000000000000000000000000000000000000000000000000000001330;
     bytes32 data = 0x0000000000000000000000000000000000000000000000000000000000001337;
     Taker taker = new Taker();
-    vm.expectRevert(bytes("ERR_OWNER"));
+    vm.expectRevert(Hdmap.ErrAuthorization.selector);
     taker.stow(hdmap, org, key, meta, data);
   }
 
@@ -403,7 +403,7 @@ contract HdmapTest is Test {
     bytes32 key = 0x0000000000000000000000000000000000000000000000000000000000001337;
     bytes32 meta = 0x0000000000000000000000000000000000000000000000000000000000000010;
     bytes32 data = 0x0000000000000000000000000000000000000000000000000000000000001337;
-    vm.expectRevert(bytes("ERR_OWNER"));
+    vm.expectRevert(Hdmap.ErrAuthorization.selector);
     hdmap.stow(org, key, meta, data);
   }
 }
