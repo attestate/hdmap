@@ -51,7 +51,7 @@
   But write-access is permanently auctioned via [deprecating
   licenses](https://anthonyleezhang.github.io/pdfs/dl.pdf).
 - The tax is calculated on a per-block basis.
-- The tax rate is 1/1908000/block. The denumerator (1908000) represents the
+- The tax rate is 1/1908000/block. The denominator (1908000) represents the
   number of blocks Ethereum targets to produce in a year (given 12 second block
   target). Practically, means that a self-assessed key worth 1 ether will
   accumulate a tax obligation of 1 ether/year.
