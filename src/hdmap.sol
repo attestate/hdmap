@@ -53,8 +53,6 @@ contract Hdmap is ReentrancyGuard {
   }
 
   function take(bytes32 org) nonReentrant external payable {
-    require(msg.value != 0, "ERR_MSG_VALUE");
-
     Deed memory deed = deeds[org];
     if (deed.controller == address(0)) {
       deed.collateral = msg.value;

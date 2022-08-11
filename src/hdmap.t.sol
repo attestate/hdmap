@@ -181,9 +181,20 @@ contract HdmapTest is Test {
     assertEq(keccak256(code), expected);
   }
 
-  function testFailTakeForFree() public {
+  function testTakeForFree() public {
     bytes32 key = 0x0000000000000000000000000000000000000000000000000000000000001337;
     hdmap.take{value: 0}(key);
+  }
+
+  function testReTakeForFree() public {
+    bytes32 key = 0x0000000000000000000000000000000000000000000000000000000000001337;
+    hdmap.take{value: 0}(key);
+
+    (uint256 price, uint256 taxes) = hdmap.fiscal(key);
+    assertEq(price, 0);
+    assertEq(taxes, 0);
+    Taker taker = new Taker();
+    taker.take{value: 1}(hdmap, key);
   }
 
   function testTake() public {
