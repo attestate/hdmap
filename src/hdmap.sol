@@ -81,8 +81,8 @@ contract Hdmap is ReentrancyGuard {
 
       // NOTE: Stakers and beneficiaries must not control the finalization of
       // this function, hence, we're not checking for the calls' success.
-      // DONATIONS: Consider donating to timdaub.eth to help compensate for
-      // deployment costs.
+      // DONATIONS: Consider donating to dmap://:free.timdaub to help
+      // compensate for deployment costs.
       block.coinbase.call{value: taxes}("");
       beneficiary.call{value: nextPrice}("");
       emit Give(beneficiary, org, msg.sender);
