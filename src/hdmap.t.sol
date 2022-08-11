@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 
 import { Dmap } from './dmap.sol';
 import { RootZone } from './root.sol';
+import { SimpleNameZoneFactory, SimpleNameZone } from "zonefab/SimpleNameZone.sol";
 import { Hdmap, Deed } from "./hdmap.sol";
 
 contract Taker {
@@ -12,8 +13,8 @@ contract Taker {
     hdmap.take{value: msg.value}(key);
   }
 
-  function set(Hdmap hdmap, bytes32 key, bytes32 meta, bytes32 data) external {
-    hdmap.set(key, meta, data);
+  function stow(Hdmap hdmap, bytes32 org, bytes32 key, bytes32 meta, bytes32 data) external {
+    hdmap.stow(org, key, meta, data);
   }
 }
 
@@ -43,8 +44,10 @@ contract HdmapTest is Test {
   // Address of publicly deployed dmap
   address dmapAddress = 0x90949c9937A11BA943C7A72C3FA073a37E3FdD96;
   address rootAddress = 0x022ea9ba506E38eF6093b6AB53e48bbD60f86832;
+  address zonefabAddress = 0xa964133B1d5b3FF1c4473Ad19bE37b6E2AaDE62b;
 
   Dmap dmap;
+  SimpleNameZoneFactory zonefab;
   Hdmap hdmap;
   RootZone rz;
   bytes32 commitment;
@@ -56,6 +59,29 @@ contract HdmapTest is Test {
   );
 
   receive() external payable {}
+
+  function setUp() public {
+    dmap = Dmap(dmapAddress);
+    zonefab = SimpleNameZoneFactory(zonefabAddress);
+    hdmap = new Hdmap(dmap, zonefab);
+
+    bytes32 salt = 0x73616c7400000000000000000000000000000000000000000000000000000000; // b32("salt");
+    bytes32 name = 0x68646d6170000000000000000000000000000000000000000000000000000000; // b32("hdmap");
+    address zone = address(hdmap);
+    bytes memory encoded = abi.encode(salt, name, zone);
+    commitment = keccak256(encoded);
+
+    rz = RootZone(rootAddress);
+    rz.hark{value: 1 ether}(commitment);
+    assertEq(rz.mark(), commitment, "after hark");
+
+    rz.etch(salt, name, zone);
+    assertEq(rz.mark(), commitment, "after etch");
+
+    bytes32 slot = keccak256(encodeZoneAndName(address(rz), name));
+    (, bytes32 data) = dmap.get(slot);
+    assertEq(data, bytes32(bytes20(address(hdmap))));
+  }
 
   function testIfBeneficiaryRentrancyIsGuarded() public {
     bytes32 key = 0x0000000000000000000000000000000000000000000000000000000000001337;
@@ -114,26 +140,19 @@ contract HdmapTest is Test {
     hdmap.take{value: 2}(key);
   }
 
-  function setUp() public {
-    dmap = Dmap(dmapAddress);
-    hdmap = new Hdmap(dmap);
+  function testEmptyLookup() public {
+    bytes32 key = 0x0000000000000000000000000000000000000000000000000000000000001337;
+    address org = hdmap.lookup(key);
+    assertEq(org, address(0));
+  }
 
-    bytes32 salt = 0x73616c7400000000000000000000000000000000000000000000000000000000; // b32("salt");
-    bytes32 name = 0x68646d6170000000000000000000000000000000000000000000000000000000; // b32("hdmap");
-    address zone = address(hdmap);
-    bytes memory encoded = abi.encode(salt, name, zone);
-    commitment = keccak256(encoded);
+  function testLookup() public {
+    bytes32 key = 0x0000000000000000000000000000000000000000000000000000000000001337;
+    uint256 value = 1;
+    hdmap.take{value: value}(key);
 
-    rz = RootZone(rootAddress);
-    rz.hark{value: 1 ether}(commitment);
-    assertEq(rz.mark(), commitment, "after hark");
-
-    rz.etch(salt, name, zone);
-    assertEq(rz.mark(), commitment, "after etch");
-
-    bytes32 slot = keccak256(encodeZoneAndName(address(rz), name));
-    (bytes32 meta, bytes32 data) = dmap.get(slot);
-    assertEq(data, bytes32(bytes20(address(hdmap))));
+    address org = hdmap.lookup(key);
+    assertTrue(org != address(0));
   }
 
   function encodeZoneAndName(address zone, bytes32 name) public pure returns (bytes memory) {
@@ -189,7 +208,7 @@ contract HdmapTest is Test {
 
     vm.roll(block.number+1);
 
-    (uint256 nextPrice1, uint256 taxes1) = hdmap.status(key);
+    (uint256 nextPrice1, uint256 taxes1) = hdmap.fiscal(key);
     assertEq(nextPrice1, collateral0-1);
     assertEq(taxes1, 1);
 
@@ -211,7 +230,7 @@ contract HdmapTest is Test {
 
     vm.roll(block.number+1);
 
-    (uint256 nextPrice1, uint256 taxes1) = hdmap.status(key);
+    (uint256 nextPrice1, uint256 taxes1) = hdmap.fiscal(key);
     assertEq(nextPrice1, collateral0-1);
     assertEq(taxes1, 1);
 
@@ -240,18 +259,18 @@ contract HdmapTest is Test {
     assertEq(collateral, value);
     assertEq(startBlock, currentBlock);
 
-    (uint256 nextPrice0, uint256 taxes0) = hdmap.status(key);
+    (uint256 nextPrice0, uint256 taxes0) = hdmap.fiscal(key);
     assertEq(nextPrice0, collateral);
     assertEq(taxes0, 0);
 
     vm.roll(block.number+hdmap.denominator());
 
-    (uint256 nextPrice1, uint256 taxes1) = hdmap.status(key);
+    (uint256 nextPrice1, uint256 taxes1) = hdmap.fiscal(key);
     assertEq(nextPrice1, 0);
     assertEq(taxes1, value);
   }
 
-  function testStatus() public {
+  function testFiscal() public {
     bytes32 key = 0x0000000000000000000000000000000000000000000000000000000000001337;
     uint256 value = hdmap.denominator();
     uint256 currentBlock = block.number;
@@ -262,18 +281,18 @@ contract HdmapTest is Test {
     assertEq(collateral, value);
     assertEq(startBlock, currentBlock);
 
-    (uint256 nextPrice0, uint256 taxes0) = hdmap.status(key);
+    (uint256 nextPrice0, uint256 taxes0) = hdmap.fiscal(key);
     assertEq(nextPrice0, collateral);
     assertEq(taxes0, 0);
 
     vm.roll(block.number+1);
 
-    (uint256 nextPrice1, uint256 taxes1) = hdmap.status(key);
+    (uint256 nextPrice1, uint256 taxes1) = hdmap.fiscal(key);
     assertEq(nextPrice1, collateral-1);
     assertEq(taxes1, 1);
 
     vm.roll(block.number+value-1);
-    (uint256 nextPrice2, uint256 taxes2) = hdmap.status(key);
+    (uint256 nextPrice2, uint256 taxes2) = hdmap.fiscal(key);
     assertEq(nextPrice2, 0);
     assertEq(taxes2, value);
   }
@@ -300,24 +319,26 @@ contract HdmapTest is Test {
     assertEq(startBlock1, currentBlock);
   }
 
-  function testSetNonExistent() public {
+  function testStowNonExistent() public {
+    bytes32 org = 0x0000000000000000000000000000000000000000000000000000000000001234;
     bytes32 key = 0x0000000000000000000000000000000000000000000000000000000000001337;
     bytes32 meta = 0x0000000000000000000000000000000000000000000000000000000000001330;
     bytes32 data = 0x0000000000000000000000000000000000000000000000000000000000001337;
     vm.expectRevert(bytes("ERR_OWNER"));
-    hdmap.set(key, meta, data);
+    hdmap.stow(org, key, meta, data);
   }
 
-  function testSetWithoutPermission() public {
-    bytes32 key = 0x0000000000000000000000000000000000000000000000000000000000001337;
+  function testStowWithoutPermission() public {
+    bytes32 org = 0x0000000000000000000000000000000000000000000000000000000000001234;
     uint256 value = hdmap.denominator();
-    hdmap.take{value: value}(key);
+    hdmap.take{value: value}(org);
 
+    bytes32 key = 0x0000000000000000000000000000000000000000000000000000000000001337;
     bytes32 meta = 0x0000000000000000000000000000000000000000000000000000000000001330;
     bytes32 data = 0x0000000000000000000000000000000000000000000000000000000000001337;
     Taker taker = new Taker();
     vm.expectRevert(bytes("ERR_OWNER"));
-    taker.set(hdmap, key, meta, data);
+    taker.stow(hdmap, org, key, meta, data);
   }
 
   function testLockedMeta() public {
@@ -343,29 +364,30 @@ contract HdmapTest is Test {
     assertFalse(locked2);
   }
 
-  function testSet() public {
-    bytes32 key = 0x0000000000000000000000000000000000000000000000000000000000001337;
+  function testStow() public {
+    bytes32 org = 0x0000000000000000000000000000000000000000000000000000000000001234;
     uint256 value = hdmap.denominator();
-    hdmap.take{value: value}(key);
+    hdmap.take{value: value}(org);
 
+    address zone = hdmap.lookup(org);
+    assertTrue(zone != address(0));
+
+    bytes32 key = 0x0000000000000000000000000000000000000000000000000000000000001337;
     bytes32 meta = 0x0000000000000000000000000000000000000000000000000000000000000010;
     bytes32 data = 0x0000000000000000000000000000000000000000000000000000000000001337;
-    hdmap.set(key, meta, data);
+    hdmap.stow(org, key, meta, data);
 
-    bytes32 slot = keccak256(encodeZoneAndName(address(hdmap), key));
-    (bytes32 actualMeta, bytes32 actualData) = dmap.get(slot);
+    (bytes32 actualMeta, bytes32 actualData) = hdmap.read(org, key);
     assertEq(actualMeta, meta);
     assertEq(actualData, data);
   }
 
-  function testSetWithLock() public {
+  function testStowOnEmptyOrg() public {
+    bytes32 org = 0x0000000000000000000000000000000000000000000000000000000000001234;
     bytes32 key = 0x0000000000000000000000000000000000000000000000000000000000001337;
-    uint256 value = hdmap.denominator();
-    hdmap.take{value: value}(key);
-
-    bytes32 meta0 = 0x0000000000000000000000000000000000000000000000000000000000000001;
-    bytes32 data0 = 0x0000000000000000000000000000000000000000000000000000000000001337;
-    vm.expectRevert(bytes("ERR_NO_LOCK"));
-    hdmap.set(key, meta0, data0);
+    bytes32 meta = 0x0000000000000000000000000000000000000000000000000000000000000010;
+    bytes32 data = 0x0000000000000000000000000000000000000000000000000000000000001337;
+    vm.expectRevert(bytes("ERR_OWNER"));
+    hdmap.stow(org, key, meta, data);
   }
 }

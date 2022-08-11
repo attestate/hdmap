@@ -2,6 +2,10 @@
 pragma solidity 0.8.13;
 
 import { Dmap } from './dmap.sol';
+import {
+  SimpleNameZone,
+  SimpleNameZoneFactory
+} from "zonefab/SimpleNameZone.sol";
 import { Harberger, Period, Perwei } from "./Harberger.sol";
 import { ReentrancyGuard } from "./ReentrancyGuard.sol";
 
@@ -20,9 +24,11 @@ struct Deed {
 // Hdmap as in Harberger dmap
 contract Hdmap is ReentrancyGuard {
   Dmap                      public immutable dmap;
+  SimpleNameZoneFactory     public immutable zonefab;
   mapping(bytes32=>Deed)    public           deeds;
-  uint256                   public immutable numerator = 1;
-  uint256                   public immutable denominator = yearBlocks;
+  uint256                   public immutable numerator    = 1;
+  uint256                   public immutable denominator  = yearBlocks;
+  bytes32                          immutable LOCK         = bytes32(uint(0x1));
 
   event Give(
     address indexed giver,
@@ -30,14 +36,15 @@ contract Hdmap is ReentrancyGuard {
     address indexed recipient
   );
 
-  constructor(Dmap d) {
+  constructor(Dmap d, SimpleNameZoneFactory z) {
     dmap = d;
+    zonefab = z;
   }
 
-  function status(
-    bytes32 key
+  function fiscal(
+    bytes32 org
   ) external view returns (uint256 nextPrice, uint256 taxes) {
-    Deed memory deed = deeds[key];
+    Deed memory deed = deeds[org];
     Period memory period = Period(deed.startBlock, block.number);
     return Harberger.getNextPrice(
       Perwei(numerator, denominator),
@@ -46,16 +53,17 @@ contract Hdmap is ReentrancyGuard {
     );
   }
 
-  function take(bytes32 key) nonReentrant external payable {
+  function take(bytes32 org) nonReentrant external payable {
     require(msg.value != 0, "ERR_MSG_VALUE");
 
-    Deed memory deed = deeds[key];
+    Deed memory deed = deeds[org];
     if (deed.controller == address(0)) {
       deed.collateral = msg.value;
       deed.controller = msg.sender;
       deed.startBlock = block.number;
-      deeds[key] = deed;
-      emit Give(address(0), key, msg.sender);
+      deeds[org] = deed;
+      dmap.set(org, LOCK, bytes32(bytes20(address(zonefab.make()))));
+      emit Give(address(0), org, msg.sender);
     } else {
       Period memory period = Period(deed.startBlock, block.number);
       (uint256 nextPrice, uint256 taxes) = Harberger.getNextPrice(
@@ -69,7 +77,7 @@ contract Hdmap is ReentrancyGuard {
       deed.collateral = msg.value;
       deed.controller = msg.sender;
       deed.startBlock = block.number;
-      deeds[key] = deed;
+      deeds[org] = deed;
 
       // NOTE: Stakers and beneficiaries must not control the finalization of
       // this function, hence, we're not checking for the calls' success.
@@ -77,23 +85,34 @@ contract Hdmap is ReentrancyGuard {
       // deployment costs.
       block.coinbase.call{value: taxes}("");
       beneficiary.call{value: nextPrice}("");
-      emit Give(beneficiary, key, msg.sender);
+      emit Give(beneficiary, org, msg.sender);
     }
   }
 
-  function give(bytes32 key, address recipient) external {
-    require(deeds[key].controller == msg.sender, "ERR_OWNER");
-    deeds[key].controller = recipient;
-    emit Give(msg.sender, key, recipient);
+  function give(bytes32 org, address recipient) external {
+    require(deeds[org].controller == msg.sender, "ERR_OWNER");
+    deeds[org].controller = recipient;
+    emit Give(msg.sender, org, recipient);
   }
 
-  function set(bytes32 key, bytes32 meta, bytes32 data) external {
-    bool locked;
-    assembly {
-      locked := and(meta, 0x1)
-    }
-    require(!locked, "ERR_NO_LOCK");
-    require(deeds[key].controller == msg.sender, "ERR_OWNER");
-    dmap.set(key, meta, data);
+  function lookup(bytes32 org) public view returns (address zone) {
+    bytes32 slot = keccak256(abi.encode(address(this), org));
+    (, bytes32 data) = dmap.get(slot);
+    return address(bytes20(data));
+  }
+
+  function read(
+    bytes32 org,
+    bytes32 key
+  ) public view returns (bytes32 meta, bytes32 data) {
+    address zone = lookup(org);
+    bytes32 slot = keccak256(abi.encode(zone, key));
+    return dmap.get(slot);
+  }
+
+  function stow(bytes32 org, bytes32 key, bytes32 meta, bytes32 data) external {
+    require(deeds[org].controller == msg.sender, "ERR_OWNER");
+    SimpleNameZone z = SimpleNameZone(lookup(org));
+    z.stow(key, meta, data);
   }
 }
