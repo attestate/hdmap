@@ -32,7 +32,7 @@
      organization: e.g. "maker".
 
   2. A `SimpleNameZone` is deployed when you call
-     `take(bytes32("maker"))`. SALSA-rules apply!
+     `assess(bytes32("maker"))`. SALSA-rules apply!
 
   3. Stow some keys (and lock them) e.g.
      "maker:dai"
