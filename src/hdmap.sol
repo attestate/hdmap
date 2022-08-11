@@ -6,7 +6,7 @@ import {
   SimpleNameZone,
   SimpleNameZoneFactory
 } from "zonefab/SimpleNameZone.sol";
-import { Harberger, Period, Perwei } from "./Harberger.sol";
+import { Harberger, Perwei } from "./Harberger.sol";
 import { ReentrancyGuard } from "./ReentrancyGuard.sol";
 
 uint256 constant avgEthereumBlockTimeSeconds = 12 seconds;
@@ -45,10 +45,9 @@ contract Hdmap is ReentrancyGuard {
     bytes32 org
   ) external view returns (uint256 nextPrice, uint256 taxes) {
     Deed memory deed = deeds[org];
-    Period memory period = Period(deed.startBlock, block.number);
     return Harberger.getNextPrice(
       Perwei(numerator, denominator),
-      period,
+      block.number - deed.startBlock,
       deed.collateral
     );
   }
@@ -65,10 +64,9 @@ contract Hdmap is ReentrancyGuard {
       dmap.set(org, LOCK, bytes32(bytes20(address(zonefab.make()))));
       emit Give(address(0), org, msg.sender);
     } else {
-      Period memory period = Period(deed.startBlock, block.number);
       (uint256 nextPrice, uint256 taxes) = Harberger.getNextPrice(
         Perwei(numerator, denominator),
-        period,
+        block.number - deed.startBlock,
         deed.collateral
       );
       require(msg.value >= nextPrice, "ERR_VAL");

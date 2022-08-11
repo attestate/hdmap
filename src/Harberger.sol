@@ -31,18 +31,13 @@ struct Perwei {
   uint256 denominator;
 }
 
-struct Period {
-  uint256 start;
-  uint256 end;
-}
-
 library Harberger {
   function getNextPrice(
     Perwei memory perwei,
-    Period memory period,
+    uint256 blockDiff,
     uint256 collateral
   ) internal pure returns (uint256, uint256) {
-    uint256 taxes = taxPerBlock(perwei, period, collateral);
+    uint256 taxes = taxPerBlock(perwei, blockDiff, collateral);
     int256 diff = int256(collateral) - int256(taxes);
 
     if (diff <= 0) {
@@ -54,12 +49,11 @@ library Harberger {
 
   function taxPerBlock(
     Perwei memory perwei,
-    Period memory period,
+    uint256 blockDiff,
     uint256 collateral
   ) internal pure returns (uint256) {
-    uint256 diff = period.end - period.start;
     return FixedPointMathLib.fdiv(
-      collateral * diff * perwei.numerator,
+      collateral * blockDiff * perwei.numerator,
       perwei.denominator * FixedPointMathLib.WAD,
       FixedPointMathLib.WAD
     );
