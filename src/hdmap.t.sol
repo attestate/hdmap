@@ -84,8 +84,8 @@ contract HdmapTest is Test {
   }
 
   function testConstants() public {
-    assertTrue(dayBlocks != 0);
-    assertTrue(yearBlocks != 0);
+    assertEq(dayBlocks, 0x1C20);
+    assertEq(yearBlocks, 0x271C80);
   }
 
   function testIfBeneficiaryRentrancyIsGuarded() public {

@@ -12,7 +12,7 @@ import { ReentrancyGuard } from "./ReentrancyGuard.sol";
 uint256 constant avgEthereumBlockTimeSeconds = 12 seconds;
 uint256 constant daySeconds = 86400 seconds;
 uint256 constant dayBlocks = daySeconds / avgEthereumBlockTimeSeconds;
-uint256 constant yearDays = 356 days;
+uint256 constant yearDays = 356;
 uint256 constant yearBlocks = dayBlocks * yearDays;
 
 struct Deed {
