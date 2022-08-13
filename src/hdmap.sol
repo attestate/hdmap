@@ -30,8 +30,9 @@ contract Hdmap is ReentrancyGuard {
   uint256                   public immutable denominator  = yearBlocks;
   bytes32                          immutable LOCK         = bytes32(uint(0x1));
 
-  error ErrValue();
   error ErrAuthorization();
+  error ErrRecipient();
+  error ErrValue();
 
   event Give(
     address indexed giver,
@@ -92,6 +93,7 @@ contract Hdmap is ReentrancyGuard {
   }
 
   function give(bytes32 org, address recipient) external {
+    if (recipient == address(0)) revert ErrRecipient();
     if (deeds[org].controller != msg.sender) revert ErrAuthorization();
     deeds[org].controller = recipient;
     emit Give(msg.sender, org, recipient);

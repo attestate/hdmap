@@ -391,6 +391,22 @@ contract HdmapTest is Test {
     assertEq(startBlock1, currentBlock);
   }
 
+  function testGiveToAddressZero() public {
+    bytes32 key = 0x0000000000000000000000000000000000000000000000000000000000001337;
+    uint256 value = hdmap.denominator();
+    uint256 currentBlock = block.number;
+    hdmap.assess{value: value}(key);
+
+    (address controller0, uint256 collateral0, uint256 startBlock0) = hdmap.deeds(key);
+    assertEq(controller0, address(this));
+    assertEq(collateral0, value);
+    assertEq(startBlock0, currentBlock);
+
+    address recipient = address(0);
+    vm.expectRevert(Hdmap.ErrRecipient.selector);
+    hdmap.give(key, recipient);
+  }
+
   function testStowNonExistent() public {
     bytes32 org = 0x0000000000000000000000000000000000000000000000000000000000001234;
     bytes32 key = 0x0000000000000000000000000000000000000000000000000000000000001337;
