@@ -161,8 +161,7 @@ contract HdmapTest is Test {
   }
 
   function encodeZoneAndName(address zone, bytes32 name) public pure returns (bytes memory) {
-    bytes12 empty = 0x000000000000;
-    return abi.encodePacked(empty, bytes20(zone), name);
+    return abi.encode(zone, name);
   }
 
   function testEncodeZoneAndName() public {
