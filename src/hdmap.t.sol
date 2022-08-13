@@ -84,8 +84,8 @@ contract HdmapTest is Test {
   }
 
   function testConstants() public {
-    assertTrue(dayBlocks != 0);
-    assertTrue(yearBlocks != 0);
+    assertEq(dayBlocks, 0x1C20);
+    assertEq(yearBlocks, 0x271C80);
   }
 
   function testIfBeneficiaryRentrancyIsGuarded() public {
@@ -161,8 +161,7 @@ contract HdmapTest is Test {
   }
 
   function encodeZoneAndName(address zone, bytes32 name) public pure returns (bytes memory) {
-    bytes12 empty = 0x000000000000;
-    return abi.encodePacked(empty, bytes20(zone), name);
+    return abi.encode(zone, name);
   }
 
   function testEncodeZoneAndName() public {
