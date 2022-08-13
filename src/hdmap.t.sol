@@ -6,7 +6,7 @@ import "forge-std/Test.sol";
 import { Dmap } from './dmap.sol';
 import { RootZone } from './root.sol';
 import { SimpleNameZoneFactory, SimpleNameZone } from "zonefab/SimpleNameZone.sol";
-import { Hdmap, Deed, dayBlocks, yearBlocks } from "./hdmap.sol";
+import { Hdmap, Deed } from "./hdmap.sol";
 
 contract Assesser {
   function assess(Hdmap hdmap, bytes32 key) external payable {
@@ -84,8 +84,7 @@ contract HdmapTest is Test {
   }
 
   function testConstants() public {
-    assertEq(dayBlocks, 0x1C20);
-    assertEq(yearBlocks, 0x271C80);
+    assertTrue(hdmap.denominator() == 0x271C80);
   }
 
   function testIfBeneficiaryRentrancyIsGuarded() public {
