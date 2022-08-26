@@ -63,7 +63,7 @@ contract HdmapTest is Test {
   function setUp() public {
     dmap = Dmap(dmapAddress);
     zonefab = SimpleNameZoneFactory(zonefabAddress);
-    hdmap = new Hdmap(dmap, zonefab);
+    hdmap = new Hdmap(dmapAddress, zonefabAddress);
 
     bytes32 salt = 0x73616c7400000000000000000000000000000000000000000000000000000000; // b32("salt");
     bytes32 name = 0x68646d6170000000000000000000000000000000000000000000000000000000; // b32("hdmap");
@@ -84,7 +84,7 @@ contract HdmapTest is Test {
   }
 
   function testConstants() public {
-    assertTrue(hdmap.denominator() == 0x271C80);
+    assertTrue(hdmap.denominator() == 0x1E18558);
   }
 
   function testIfBeneficiaryRentrancyIsGuarded() public {
@@ -98,10 +98,10 @@ contract HdmapTest is Test {
     br.assess{value: 2}(hdmap, key);
 
     bytes32 reentryKey = 0x0000000000000000000000000000000000000000000000000000000000000666;
-    (address controller, uint256 collateral, uint256 startBlock) = hdmap.deeds(reentryKey);
+    (address controller, uint256 collateral, uint256 timestamp) = hdmap.deeds(reentryKey);
     assertEq(controller, address(0));
     assertEq(collateral, 0);
-    assertEq(startBlock, 0);
+    assertEq(timestamp, 0);
   }
 
   function testIfCoinbaseRentrancyIsGuarded() public {
@@ -115,10 +115,10 @@ contract HdmapTest is Test {
     hdmap.assess{value: 2}(key);
 
     bytes32 reentryKey = 0x0000000000000000000000000000000000000000000000000000000000000666;
-    (address controller, uint256 collateral, uint256 startBlock) = hdmap.deeds(reentryKey);
+    (address controller, uint256 collateral, uint256 timestamp) = hdmap.deeds(reentryKey);
     assertEq(controller, address(0));
     assertEq(collateral, 0);
-    assertEq(startBlock, 0);
+    assertEq(timestamp, 0);
   }
 
   function testToMakeSureThatBeneficiaryCannotCensorAssess() public {
@@ -191,39 +191,38 @@ contract HdmapTest is Test {
     (uint256 price, uint256 taxes) = hdmap.fiscal(key);
     assertEq(price, 0);
     assertEq(taxes, 0);
-    Assesser Assesser = new Assesser();
-    Assesser.assess{value: 1}(hdmap, key);
+    Assesser assesser = new Assesser();
+    assesser.assess{value: 1}(hdmap, key);
   }
 
   function testAssess() public {
     bytes32 key = 0x0000000000000000000000000000000000000000000000000000000000001337;
     uint256 value = 1;
-    uint256 currentBlock = block.number;
     vm.expectEmit(true, true, true, false);
     emit Give(address(0), key, address(this));
     hdmap.assess{value: value}(key);
 
-    (address controller, uint256 collateral, uint256 startBlock) = hdmap.deeds(key);
+    (address controller, uint256 collateral, uint256 timestamp) = hdmap.deeds(key);
     assertEq(controller, address(this));
     assertEq(collateral, value);
-    assertEq(startBlock, currentBlock);
+    assertEq(timestamp, block.timestamp);
   }
 
   function testLoweringThePrice() public {
     bytes32 key = 0x0000000000000000000000000000000000000000000000000000000000001337;
     uint256 value = 1 ether;
-    uint256 currentBlock = block.number;
+    uint256 currentTime = block.timestamp;
     vm.expectEmit(true, true, true, false);
     emit Give(address(0), key, address(this));
     hdmap.assess{value: value}(key);
 
-    (address controller0, uint256 collateral0, uint256 startBlock0) = hdmap.deeds(key);
+    (address controller0, uint256 collateral0, uint256 timestamp0) = hdmap.deeds(key);
     assertEq(controller0, address(this));
     assertEq(collateral0, value);
-    assertEq(startBlock0, currentBlock);
+    assertEq(timestamp0, block.timestamp);
 
-    vm.roll(block.number+hdmap.denominator()/2);
-    assertEq(block.number, currentBlock+hdmap.denominator()/2, "blocks must match");
+    vm.warp(block.timestamp+hdmap.denominator()/2);
+    assertEq(block.timestamp, currentTime+hdmap.denominator()/2, "times must match");
 
     (uint256 nextPrice0, uint256 taxes0) = hdmap.fiscal(key);
     assertEq(nextPrice0, 0.5 ether, "price");
@@ -235,27 +234,27 @@ contract HdmapTest is Test {
     assertEq(prevBalanceOwner+0.5 ether, address(this).balance, "owner bal");
     assertEq(prevBalanceCB+0.5 ether, block.coinbase.balance, "cb bal");
 
-    (address controller1, uint256 collateral1, uint256 startBlock1) = hdmap.deeds(key);
+    (address controller1, uint256 collateral1, uint256 timestamp1) = hdmap.deeds(key);
     assertEq(controller1, address(this));
     assertEq(collateral1, 0);
-    assertEq(startBlock1, block.number);
+    assertEq(timestamp1, block.timestamp);
   }
 
   function testLoweringThePriceAsExternalAssesser() public {
     bytes32 key = 0x0000000000000000000000000000000000000000000000000000000000001337;
     uint256 value = 1 ether;
-    uint256 currentBlock = block.number;
+    uint256 currentTime = block.timestamp;
     vm.expectEmit(true, true, true, false);
     emit Give(address(0), key, address(this));
     hdmap.assess{value: value}(key);
 
-    (address controller0, uint256 collateral0, uint256 startBlock0) = hdmap.deeds(key);
+    (address controller0, uint256 collateral0, uint256 timestamp0) = hdmap.deeds(key);
     assertEq(controller0, address(this));
     assertEq(collateral0, value);
-    assertEq(startBlock0, currentBlock);
+    assertEq(timestamp0, block.timestamp);
 
-    vm.roll(block.number+hdmap.denominator()/2);
-    assertEq(block.number, currentBlock+hdmap.denominator()/2, "blocks must match");
+    vm.warp(block.timestamp+hdmap.denominator()/2);
+    assertEq(block.timestamp, currentTime+hdmap.denominator()/2, "times must match");
 
     (uint256 nextPrice0, uint256 taxes0) = hdmap.fiscal(key);
     assertEq(nextPrice0, 0.5 ether, "price");
@@ -269,15 +268,14 @@ contract HdmapTest is Test {
   function testReAssessForLowerPrice() public {
     bytes32 key = 0x0000000000000000000000000000000000000000000000000000000000001337;
     uint256 value = hdmap.denominator();
-    uint256 currentBlock = block.number;
     hdmap.assess{value: value}(key);
 
-    (address controller0, uint256 collateral0, uint256 startBlock0) = hdmap.deeds(key);
+    (address controller0, uint256 collateral0, uint256 timestamp0) = hdmap.deeds(key);
     assertEq(controller0, address(this));
     assertEq(collateral0, value);
-    assertEq(startBlock0, currentBlock);
+    assertEq(timestamp0, block.timestamp);
 
-    vm.roll(block.number+1);
+    vm.warp(block.timestamp+1);
 
     (uint256 nextPrice1, uint256 taxes1) = hdmap.fiscal(key);
     assertEq(nextPrice1, collateral0-1);
@@ -291,15 +289,14 @@ contract HdmapTest is Test {
   function testReAssess() public {
     bytes32 key = 0x0000000000000000000000000000000000000000000000000000000000001337;
     uint256 value = hdmap.denominator();
-    uint256 currentBlock = block.number;
     hdmap.assess{value: value}(key);
 
-    (address controller0, uint256 collateral0, uint256 startBlock0) = hdmap.deeds(key);
+    (address controller0, uint256 collateral0, uint256 timestamp0) = hdmap.deeds(key);
     assertEq(controller0, address(this));
     assertEq(collateral0, value);
-    assertEq(startBlock0, currentBlock);
+    assertEq(timestamp0, block.timestamp);
 
-    vm.roll(block.number+1);
+    vm.warp(block.timestamp+1);
 
     (uint256 nextPrice1, uint256 taxes1) = hdmap.fiscal(key);
     assertEq(nextPrice1, collateral0-1);
@@ -313,28 +310,28 @@ contract HdmapTest is Test {
     uint256 balance1 = address(this).balance;
     assertEq(balance0 - balance1, 1);
 
-    (address controller1, uint256 collateral1, uint256 startBlock1) = hdmap.deeds(key);
+    (address controller1, uint256 collateral1, uint256 timestamp1) = hdmap.deeds(key);
     assertEq(controller1, address(assesser));
     assertEq(collateral1, collateral0);
-    assertEq(startBlock1, block.number);
+    assertEq(timestamp1, block.timestamp);
   }
 
   function testCostAfterAYear() public {
     bytes32 key = 0x0000000000000000000000000000000000000000000000000000000000001337;
     uint256 value = 1 ether;
-    uint256 currentBlock = block.number;
+    uint256 currentTime = block.timestamp;
     hdmap.assess{value: value}(key);
 
-    (address controller, uint256 collateral, uint256 startBlock) = hdmap.deeds(key);
+    (address controller, uint256 collateral, uint256 timestamp) = hdmap.deeds(key);
     assertEq(controller, address(this));
     assertEq(collateral, value);
-    assertEq(startBlock, currentBlock);
+    assertEq(timestamp, currentTime);
 
     (uint256 nextPrice0, uint256 taxes0) = hdmap.fiscal(key);
     assertEq(nextPrice0, collateral);
     assertEq(taxes0, 0);
 
-    vm.roll(block.number+hdmap.denominator());
+    vm.warp(block.timestamp+hdmap.denominator());
 
     (uint256 nextPrice1, uint256 taxes1) = hdmap.fiscal(key);
     assertEq(nextPrice1, 0);
@@ -344,25 +341,25 @@ contract HdmapTest is Test {
   function testFiscal() public {
     bytes32 key = 0x0000000000000000000000000000000000000000000000000000000000001337;
     uint256 value = hdmap.denominator();
-    uint256 currentBlock = block.number;
+    uint256 currentTime = block.timestamp;
     hdmap.assess{value: value}(key);
 
-    (address controller, uint256 collateral, uint256 startBlock) = hdmap.deeds(key);
+    (address controller, uint256 collateral, uint256 timestamp) = hdmap.deeds(key);
     assertEq(controller, address(this));
     assertEq(collateral, value);
-    assertEq(startBlock, currentBlock);
+    assertEq(timestamp, currentTime);
 
     (uint256 nextPrice0, uint256 taxes0) = hdmap.fiscal(key);
     assertEq(nextPrice0, collateral);
     assertEq(taxes0, 0);
 
-    vm.roll(block.number+1);
+    vm.warp(block.timestamp+1);
 
     (uint256 nextPrice1, uint256 taxes1) = hdmap.fiscal(key);
     assertEq(nextPrice1, collateral-1);
     assertEq(taxes1, 1);
 
-    vm.roll(block.number+value-1);
+    vm.warp(block.timestamp+value-1);
     (uint256 nextPrice2, uint256 taxes2) = hdmap.fiscal(key);
     assertEq(nextPrice2, 0);
     assertEq(taxes2, value);
@@ -371,35 +368,35 @@ contract HdmapTest is Test {
   function testGive() public {
     bytes32 key = 0x0000000000000000000000000000000000000000000000000000000000001337;
     uint256 value = hdmap.denominator();
-    uint256 currentBlock = block.number;
+    uint256 currentTime = block.timestamp;
     hdmap.assess{value: value}(key);
 
-    (address controller0, uint256 collateral0, uint256 startBlock0) = hdmap.deeds(key);
+    (address controller0, uint256 collateral0, uint256 timestamp0) = hdmap.deeds(key);
     assertEq(controller0, address(this));
     assertEq(collateral0, value);
-    assertEq(startBlock0, currentBlock);
+    assertEq(timestamp0, currentTime);
 
     address recipient = address(1337);
     vm.expectEmit(true, true, true, false);
     emit Give(address(this), key, recipient);
     hdmap.give(key, recipient);
 
-    (address controller1, uint256 collateral1, uint256 startBlock1) = hdmap.deeds(key);
+    (address controller1, uint256 collateral1, uint256 timestamp1) = hdmap.deeds(key);
     assertEq(controller1, recipient);
     assertEq(collateral1, value);
-    assertEq(startBlock1, currentBlock);
+    assertEq(timestamp1, currentTime);
   }
 
   function testGiveToAddressZero() public {
     bytes32 key = 0x0000000000000000000000000000000000000000000000000000000000001337;
     uint256 value = hdmap.denominator();
-    uint256 currentBlock = block.number;
+    uint256 currentTime = block.timestamp;
     hdmap.assess{value: value}(key);
 
-    (address controller0, uint256 collateral0, uint256 startBlock0) = hdmap.deeds(key);
+    (address controller0, uint256 collateral0, uint256 timestamp0) = hdmap.deeds(key);
     assertEq(controller0, address(this));
     assertEq(collateral0, value);
-    assertEq(startBlock0, currentBlock);
+    assertEq(timestamp0, currentTime);
 
     address recipient = address(0);
     vm.expectRevert(Hdmap.ErrRecipient.selector);

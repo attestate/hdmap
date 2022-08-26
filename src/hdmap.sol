@@ -9,21 +9,10 @@ import {
 import { Harberger, Perwei } from "./Harberger.sol";
 import { ReentrancyGuard } from "./ReentrancyGuard.sol";
 
-/*
-
-The tax shall be 100% of the property's value per annum:
-
-uint256 constant avgEthereumBlockTimeSeconds = 12 seconds;
-uint256 constant daySeconds = 86400 seconds;
-uint256 constant dayBlocks = daySeconds / avgEthereumBlockTimeSeconds;
-uint256 constant yearDays = 356 days;
-uint256 constant yearBlocks = dayBlocks * yearDays; //  == 0x271C80
-*/
-
 struct Deed {
   address controller;
   uint256 collateral;
-  uint256 startBlock;
+  uint256 timestamp;
 }
 
 // Hdmap as in Harberger dmap
@@ -32,7 +21,7 @@ contract Hdmap is ReentrancyGuard {
   SimpleNameZoneFactory     public immutable zonefab;
   mapping(bytes32=>Deed)    public           deeds;
   uint256                   public immutable numerator    = 1;
-  uint256                   public immutable denominator  = 0x271C80;
+  uint256                   public immutable denominator  = 0x1E18558;
   bytes32                          immutable LOCK         = bytes32(uint(0x1));
 
   error ErrAuthorization();
@@ -45,9 +34,9 @@ contract Hdmap is ReentrancyGuard {
     address indexed recipient
   );
 
-  constructor(Dmap d, SimpleNameZoneFactory z) {
-    dmap = d;
-    zonefab = z;
+  constructor(address d, address z) {
+    dmap = Dmap(d);
+    zonefab = SimpleNameZoneFactory(z);
   }
 
   function fiscal(
@@ -56,7 +45,7 @@ contract Hdmap is ReentrancyGuard {
     Deed memory deed = deeds[org];
     return Harberger.getNextPrice(
       Perwei(numerator, denominator),
-      block.number - deed.startBlock,
+      block.timestamp - deed.timestamp,
       deed.collateral
     );
   }
@@ -66,14 +55,14 @@ contract Hdmap is ReentrancyGuard {
     if (deed.controller == address(0)) {
       deed.collateral = msg.value;
       deed.controller = msg.sender;
-      deed.startBlock = block.number;
+      deed.timestamp = block.timestamp;
       deeds[org] = deed;
       dmap.set(org, LOCK, bytes32(bytes20(address(zonefab.make()))));
       emit Give(address(0), org, msg.sender);
     } else {
       (uint256 nextPrice, uint256 taxes) = Harberger.getNextPrice(
         Perwei(numerator, denominator),
-        block.number - deed.startBlock,
+        block.timestamp - deed.timestamp,
         deed.collateral
       );
 
@@ -84,7 +73,7 @@ contract Hdmap is ReentrancyGuard {
       address beneficiary = deed.controller;
       deed.collateral = msg.value;
       deed.controller = msg.sender;
-      deed.startBlock = block.number;
+      deed.timestamp= block.timestamp;
       deeds[org] = deed;
 
       // NOTE: Stakers and beneficiaries must not control the finalization of
